@@ -1,0 +1,418 @@
+"""This is the first, most barebones model of our system, fr jus a point source in a room with four walls, a floor, y roof,"""
+
+import openmc
+import numpy as np
+import os
+import matplotlib.pyplot as plt
+import math
+import pandas as pd
+import shutil # For cleanup
+import openmc.plotter
+from mpl_toolkits.mplot3d import Axes3D
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+from openmc_plasma_source import fusion_point_source
+
+
+#########MATERIALS####
+#First want to create our shield wall material
+#From Anderson et al. the density of the polyboron shield wall is 1.12 g/cc
+pbwall=openmc.Material(name='pbwall')
+pbwall.set_density('g/cm3',1.12)
+pbwall.add_element('H',0.133, percent_type='wo')
+pbwall.add_element('C',0.817, percent_type='wo')
+pbwall.add_element('B', 0.05, percent_type='wo')
+#pbwall=openmc.Material.mix_materials([H, C, B], [0.133, 0.817, 0.050], 'wo') #Trying sumn new, if that dog dont hunt, try whats below
+
+
+air = openmc.Material(name="air")
+air.set_density("g/cm3", 0.001225)
+air.add_element("N", 0.78)
+air.add_element("O", 0.21)
+air.add_element("Ar", 0.01)
+
+
+"""Idk what the actual composition is, this was given based on a very rough search and just deciding to estimate with some ai guidance
+The west wall has a 13 mm thick steel shield wall, wont include on this model but keep in mind on more complex""" 
+#SA508 steel from steelprogroup.com
+steel=openmc.Material(name='steel') 
+steel.set_density('g/cm3', 7.85)
+steel.add_element('C', 0.0025, percent_type='wo')   # 0.25% (taking max)
+steel.add_element('Mn', 0.0120, percent_type='wo')  # 1.20%
+steel.add_element('Si', 0.0060, percent_type='wo')  # 0.60%
+steel.add_element('P', 0.00035, percent_type='wo')  # 0.035% (taking max)
+steel.add_element('S', 0.00035, percent_type='wo')  # 0.035% (taking max)
+steel.add_element('Ni', 0.0025, percent_type='wo')  # 0.25%
+steel.add_element('Cr', 0.0025, percent_type='wo')  # 0.25%
+steel.add_element('Mo', 0.0008, percent_type='wo')  # 0.08%
+steel.add_element('Cu', 0.0035, percent_type='wo')  # 0.35%
+steel.add_element('V', 0.0005, percent_type='wo')   # 0.05%
+steel.add_element('B', 0.00003, percent_type='wo')  # 0.003% (taking max)
+steel.add_element('Fe', 0.97537, percent_type='wo') # Balance (remaining ~97.5%)
+#steel=openmc.Material.mix_materials([C, Mn, Si, P, Ni, Cr, Mo, Cu, V, B, Fe], [0.0025, 0.0120, 0.0060, 0.00035, 0.00035, 0.0025, 0.0025, 0.0008, 0.0035, 0.0005, 0.00003, 0.97537], 'wo')
+
+#now the floor
+
+# Create ordinary concrete
+concrete = openmc.Material(name='Concrete')
+concrete.set_density('g/cm3', 2.3)
+concrete.add_element('H', 0.010, percent_type='wo')
+concrete.add_element('C', 0.001, percent_type='wo')
+concrete.add_element('O', 0.529, percent_type='wo')
+concrete.add_element('Na', 0.016, percent_type='wo')
+concrete.add_element('Mg', 0.002, percent_type='wo')
+concrete.add_element('Al', 0.034, percent_type='wo')
+concrete.add_element('Si', 0.337, percent_type='wo')
+concrete.add_element('K', 0.013, percent_type='wo')
+concrete.add_element('Ca', 0.044, percent_type='wo')
+concrete.add_element('Fe', 0.014, percent_type='wo')
+
+# Create barite (BaSO4) for heavy aggregate
+barite = openmc.Material(name='Barite')
+barite.set_density('g/cm3', 4.5)
+barite.add_element('Ba', 0.589, percent_type='wo')
+barite.add_element('S', 0.137, percent_type='wo')
+barite.add_element('O', 0.274, percent_type='wo')
+
+# Mix to create nuclear grade concrete (typically 10-20% barite)
+floor_mat = openmc.Material.mix_materials([concrete, barite], [0.85, 0.15], 'wo')
+
+
+#The plasma source thanks to that person on git
+my_source = fusion_point_source(
+    coordinate=(0, 0, 540), #place in the center of room, 3.1 m from the roof
+    temperature=20000.0, #dont know 28jan2026
+    fuel={"D": 1.0},  # Fuel is D:D, gonna assume that its 50/50 but it prolly dont een matter weldad weldad
+)
+
+mats = openmc.Materials([pbwall, steel, floor_mat, air])
+mats.cross_sections = "/storage/work/ajg7072/Capstone/endf/cross_sections.xml" #please rem to use your own file
+mats.export_to_xml()
+
+
+########Geometry############
+room_l = 1830 #cm
+room_h = 856 #cm
+room_w= 1830 #cm this isnt known so far so just making this a box 
+
+wall_t=45 #averaged
+roof_t=36 #homogoneous roof assumption
+floor_t=30 #guess
+
+#outer boundarys
+x_min_outer = openmc.XPlane(-room_l/2 - wall_t, boundary_type='vacuum')
+x_max_outer = openmc.XPlane(room_l/2 + wall_t, boundary_type='vacuum')
+y_min_outer = openmc.YPlane(-room_w/2 - wall_t, boundary_type='vacuum')
+y_max_outer = openmc.YPlane(room_w/2 + wall_t, boundary_type='vacuum')
+z_min_outer = openmc.ZPlane(-floor_t, boundary_type='vacuum')
+z_max_outer = openmc.ZPlane(room_h + roof_t, boundary_type='vacuum')
+
+#inner bounds
+x_min_inner = openmc.XPlane(-room_l/2)
+x_max_inner = openmc.XPlane(room_l/2)
+y_min_inner = openmc.YPlane(-room_w/2)
+y_max_inner = openmc.YPlane(room_w/2)
+z_min_inner = openmc.ZPlane(0)
+z_max_inner = openmc.ZPlane(room_h)
+
+
+
+
+# Create cells
+# Interior 
+interior = openmc.Cell(name='interior')
+interior.region = +x_min_inner & -x_max_inner & +y_min_inner & -y_max_inner & +z_min_inner & -z_max_inner
+interior.fill = air
+
+#Walls
+west_wall = openmc.Cell(name='west_wall')
+west_wall.region = +x_min_outer & -x_min_inner & +y_min_inner & -y_max_inner & +z_min_inner & -z_max_inner
+west_wall.fill = pbwall
+
+east_wall = openmc.Cell(name='east_wall')
+east_wall.region = +x_max_inner & -x_max_outer & +y_min_inner & -y_max_inner & +z_min_inner & -z_max_inner
+east_wall.fill = pbwall
+
+north_wall = openmc.Cell(name='north_wall')
+north_wall.region = +x_min_inner & -x_max_inner & +y_max_inner & -y_max_outer & +z_min_inner & -z_max_inner
+north_wall.fill = pbwall
+
+south_wall = openmc.Cell(name='south_wall')
+south_wall.region = +x_min_inner & -x_max_inner & -y_min_inner & +y_min_outer & +z_min_inner & -z_max_inner
+south_wall.fill = pbwall
+
+#Floor
+floor = openmc.Cell(name = 'floor')
+floor.region = +x_min_outer & -x_max_outer & +y_min_outer & -y_max_outer & +z_min_outer & -z_min_inner
+floor.fill=floor_mat
+
+#Roof
+roof = openmc.Cell(name='roof')
+roof.region = +x_min_outer & -x_max_outer & +y_min_outer & -y_max_outer & +z_max_inner & -z_max_outer
+roof.fill = steel
+
+#Graveyard for lost particles
+graveyard = openmc.Cell(name='graveyard')
+graveyard.region = (
+    +x_min_outer & -x_max_outer &
+    +y_min_outer & -y_max_outer &
+    +z_min_outer & -z_max_outer
+) & ~(
+    interior.region |
+    west_wall.region | east_wall.region |
+    north_wall.region | south_wall.region |
+    floor.region |
+    roof.region
+)
+graveyard.fill = air
+
+#universe
+universe = openmc.Universe(cells=[
+    interior,
+    west_wall, east_wall, north_wall, south_wall,
+    floor,
+    roof,
+    graveyard
+])
+
+geometry = openmc.Geometry(universe)
+geometry.export_to_xml()
+
+
+
+#Settings
+settings = openmc.Settings()
+settings.batches = 100
+settings.inactive = 10
+settings.particles = 1000
+settings.run_mode = 'fixed source'
+settings.sources=[my_source]
+settings.export_to_xml()
+
+
+mesh = openmc.RegularMesh()
+mesh.dimension = (100, 100, 50)  # x, y, z divisions (adjust for resolution vs. speed)
+
+mesh.lower_left = (
+    -room_l/2,
+    -room_w/2,
+    0  # Start from floor
+)
+
+mesh.upper_right = (
+    room_l/2,
+    room_w/2,
+    room_h  # Go to ceiling
+)
+
+mesh_filter = openmc.MeshFilter(mesh)
+
+flux_tally = openmc.Tally(name="flux_xy")
+flux_tally.filters = [mesh_filter]
+flux_tally.scores = ["flux"]
+
+tallies = openmc.Tallies([flux_tally])
+tallies.export_to_xml()
+
+""" attempt 1 at 3d plotting
+vox = openmc.Plot()
+vox.type = 'voxel'
+vox.filename = 'room_voxel'
+vox.origin = (0, 0, room_h/2)
+vox.width = (room_l + 2*wall_t, room_w + 2*wall_t, room_h + roof_t)
+vox.pixels = (300, 300, 200)
+vox.color_by = 'material'
+
+openmc.Plots([vox]).export_to_xml()
+"""
+openmc.run(threads=4)
+
+
+#### 2d heat map xy worked alright tbh
+sp = openmc.StatePoint("statepoint.100.h5")
+tally = sp.get_tally(name="flux_xy")
+
+# Extract flux data and reshape to mesh dimensions (100x100x50)
+flux_mean_3d = tally.mean.reshape((100, 100, 50))
+
+# For 2D heatmap, take a slice at mid-height
+z_mid = 25  # Middle z-slice (out of 50)
+flux_mean = flux_mean_3d[:, :, z_mid]
+
+# Create heatmap
+plt.figure(figsize=(10, 8))
+plt.imshow(flux_mean.T, origin='lower', 
+           extent=[-room_l/2, room_l/2, -room_w/2, room_w/2],
+           cmap='hot', interpolation='nearest')
+plt.colorbar(label='Neutron Flux (n/cm²-s)')
+plt.xlabel('X position (cm)')
+plt.ylabel('Y position (cm)')
+plt.title('Neutron Flux Distribution at Mid-Height')
+plt.savefig('flux_heatmap.png', dpi=300, bbox_inches='tight')
+plt.show()
+
+
+#3d plot attempt xx
+
+# Create figure
+fig = plt.figure(figsize=(14, 10))
+ax = fig.add_subplot(111, projection='3d')
+
+# Room dimensions 
+room_l = 1830  # cm
+room_h = 856   # cm
+room_w = 1830  # cm
+wall_t = 45
+roof_t = 36
+floor_t = 30
+
+# Define vertices for each surface
+# Floor (outer surface)
+floor_vertices = [
+    [[-room_l/2 - wall_t, -room_w/2 - wall_t, -floor_t],
+     [room_l/2 + wall_t, -room_w/2 - wall_t, -floor_t],
+     [room_l/2 + wall_t, room_w/2 + wall_t, -floor_t],
+     [-room_l/2 - wall_t, room_w/2 + wall_t, -floor_t]]
+]
+
+# Roof (outer surface)
+roof_vertices = [
+    [[-room_l/2 - wall_t, -room_w/2 - wall_t, room_h + roof_t],
+     [room_l/2 + wall_t, -room_w/2 - wall_t, room_h + roof_t],
+     [room_l/2 + wall_t, room_w/2 + wall_t, room_h + roof_t],
+     [-room_l/2 - wall_t, room_w/2 + wall_t, room_h + roof_t]]
+]
+
+# West wall (outer surface)
+west_wall_vertices = [
+    [[-room_l/2 - wall_t, -room_w/2, 0],
+     [-room_l/2 - wall_t, room_w/2, 0],
+     [-room_l/2 - wall_t, room_w/2, room_h],
+     [-room_l/2 - wall_t, -room_w/2, room_h]]
+]
+
+# East wall (outer surface)
+east_wall_vertices = [
+    [[room_l/2 + wall_t, -room_w/2, 0],
+     [room_l/2 + wall_t, room_w/2, 0],
+     [room_l/2 + wall_t, room_w/2, room_h],
+     [room_l/2 + wall_t, -room_w/2, room_h]]
+]
+
+# North wall (outer surface)
+north_wall_vertices = [
+    [[-room_l/2, room_w/2 + wall_t, 0],
+     [room_l/2, room_w/2 + wall_t, 0],
+     [room_l/2, room_w/2 + wall_t, room_h],
+     [-room_l/2, room_w/2 + wall_t, room_h]]
+]
+
+# South wall (outer surface)
+south_wall_vertices = [
+    [[-room_l/2, -room_w/2 - wall_t, 0],
+     [room_l/2, -room_w/2 - wall_t, 0],
+     [room_l/2, -room_w/2 - wall_t, room_h],
+     [-room_l/2, -room_w/2 - wall_t, room_h]]
+]
+
+# Create collections and add to plot
+floor_collection = Poly3DCollection(floor_vertices, alpha=0.3, facecolor='gray', edgecolor='black')
+roof_collection = Poly3DCollection(roof_vertices, alpha=0.3, facecolor='silver', edgecolor='black')
+west_wall_collection = Poly3DCollection(west_wall_vertices, alpha=0.5, facecolor='blue', edgecolor='black')
+east_wall_collection = Poly3DCollection(east_wall_vertices, alpha=0.5, facecolor='blue', edgecolor='black')
+north_wall_collection = Poly3DCollection(north_wall_vertices, alpha=0.5, facecolor='blue', edgecolor='black')
+south_wall_collection = Poly3DCollection(south_wall_vertices, alpha=0.5, facecolor='blue', edgecolor='black')
+
+ax.add_collection3d(floor_collection)
+ax.add_collection3d(roof_collection)
+ax.add_collection3d(west_wall_collection)
+ax.add_collection3d(east_wall_collection)
+ax.add_collection3d(north_wall_collection)
+ax.add_collection3d(south_wall_collection)
+
+# Plot the source location
+source_x, source_y, source_z = 0, 0, 540
+ax.scatter([source_x], [source_y], [source_z], c='red', s=200, marker='*', label='Fusion Source')
+
+# Set labels and limits
+ax.set_xlabel('X (cm)')
+ax.set_ylabel('Y (cm)')
+ax.set_zlabel('Z (cm)')
+ax.set_title('3D Room Geometry with Shielding')
+
+# Set axis limits
+max_dim = max(room_l + 2*wall_t, room_w + 2*wall_t, room_h + roof_t) / 2
+ax.set_xlim([-max_dim, max_dim])
+ax.set_ylim([-max_dim, max_dim])
+ax.set_zlim([-floor_t, room_h + roof_t])
+
+# Add legend
+ax.legend()
+
+# Add grid
+ax.grid(True)
+
+plt.savefig('room_3d_geometry.png', dpi=300, bbox_inches='tight')
+plt.show()
+
+##Actually worked out fairly well, maybe try and combined the ideas to make a 3d heat map?
+
+
+
+########### 3d heat map attempt
+# Load results
+sp = openmc.StatePoint("statepoint.100.h5")
+tally = sp.get_tally(name="flux_xy")
+
+# Extract and reshape flux data to 3D
+nx, ny, nz = 100, 100, 50  # Must match your mesh dimensions
+flux_mean = tally.mean.reshape((nx, ny, nz))
+
+# Create coordinate arrays
+x = np.linspace(-room_l/2, room_l/2, nx)
+y = np.linspace(-room_w/2, room_w/2, ny)
+z = np.linspace(0, room_h, nz)
+
+# Create 3D figure
+fig = plt.figure(figsize=(16, 12))
+ax = fig.add_subplot(111, projection='3d')
+
+# Create meshgrid for 3D coordinates
+X, Y, Z = np.meshgrid(x, y, z, indexing='ij')
+
+# Flatten arrays for scatter plot
+X_flat = X.flatten()
+Y_flat = Y.flatten()
+Z_flat = Z.flatten()
+flux_flat = flux_mean.flatten()
+
+# Filter out zero or very low flux values to reduce clutter
+threshold = np.percentile(flux_flat[flux_flat > 0], 10)  # Show only top 90% of flux
+mask = flux_flat > threshold
+
+# Create 3D scatter plot with color based on flux
+scatter = ax.scatter(X_flat[mask], Y_flat[mask], Z_flat[mask], 
+                    c=flux_flat[mask], 
+                    cmap='hot', 
+                    marker='.',
+                    s=20,
+                    alpha=0.6)
+
+# Add colorbar
+cbar = plt.colorbar(scatter, ax=ax, pad=0.1, shrink=0.8)
+cbar.set_label('"Neutron Flux (n/cm²-s)"', rotation=270, labelpad=20)
+
+# Plot source location
+ax.scatter([0], [0], [540], c='cyan', s=300, marker='.', 
+          edgecolors='blue', linewidths=2, label='Point Source')
+
+# Set labels
+ax.set_xlabel('X (cm)')
+ax.set_ylabel('Y (cm)')
+ax.set_zlabel('Z (cm)')
+ax.set_title('3D Neutron Flux Distribution')
+
+ax.legend()
+ax.grid(True)
+
+plt.savefig('flux_3d_heatmap.png', dpi=300, bbox_inches='tight')
+plt.show()
