@@ -93,7 +93,7 @@ settings.source = src
 settings.batches = 100
 settings.inactive = 10
 settings.particles = 1000
-settings.export_to_xml
+settings.export_to_xml()
 
 # <<< define tallies: 
 cell_filter = openmc.CellFilter(fuel)
@@ -103,7 +103,7 @@ t.nuclides = ['U235']
 t.scores = ['total','fission','absorption','(n,gamma)']
 
 tallies = openmc.Tallies([t])
-tallies.export_to_xml
+tallies.export_to_xml()
 
 # <<< Plot geometry to verify good import: 
 
