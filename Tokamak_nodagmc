@@ -1,0 +1,279 @@
+"""OpenMC neutron transport simulation withflux visualization"""
+
+import openmc
+import numpy as np
+import os
+import matplotlib.pyplot as plt
+import math
+import pandas as pd
+import shutil 
+import openmc.plotter
+from openmc_plasma_source import tokamak_source
+import plotly.graph_objects as go
+
+#########MATERIALS####
+pbwall=openmc.Material(name='pbwall')
+pbwall.set_density('g/cm3',1.12)
+pbwall.add_element('H',0.133, percent_type='wo')
+pbwall.add_element('C',0.817, percent_type='wo')
+pbwall.add_element('B', 0.05, percent_type='wo')
+
+air = openmc.Material(name="air")
+air.set_density("g/cm3", 0.001225)
+air.add_element("N", 0.78)
+air.add_element("O", 0.21)
+air.add_element("Ar", 0.01)
+
+steel=openmc.Material(name='steel') 
+steel.set_density('g/cm3', 7.85)
+steel.add_element('C', 0.0025, percent_type='wo')
+steel.add_element('Mn', 0.0120, percent_type='wo')
+steel.add_element('Si', 0.0060, percent_type='wo')
+steel.add_element('P', 0.00035, percent_type='wo')
+steel.add_element('S', 0.00035, percent_type='wo')
+steel.add_element('Ni', 0.0025, percent_type='wo')
+steel.add_element('Cr', 0.0025, percent_type='wo')
+steel.add_element('Mo', 0.0008, percent_type='wo')
+steel.add_element('Cu', 0.0035, percent_type='wo')
+steel.add_element('V', 0.0005, percent_type='wo')
+steel.add_element('B', 0.00003, percent_type='wo')
+steel.add_element('Fe', 0.97537, percent_type='wo')
+
+concrete = openmc.Material(name='Concrete')
+concrete.set_density('g/cm3', 2.3)
+concrete.add_element('H', 0.010, percent_type='wo')
+concrete.add_element('C', 0.001, percent_type='wo')
+concrete.add_element('O', 0.529, percent_type='wo')
+concrete.add_element('Na', 0.016, percent_type='wo')
+concrete.add_element('Mg', 0.002, percent_type='wo')
+concrete.add_element('Al', 0.034, percent_type='wo')
+concrete.add_element('Si', 0.337, percent_type='wo')
+concrete.add_element('K', 0.013, percent_type='wo')
+concrete.add_element('Ca', 0.044, percent_type='wo')
+concrete.add_element('Fe', 0.014, percent_type='wo')
+
+barite = openmc.Material(name='Barite')
+barite.set_density('g/cm3', 4.5)
+barite.add_element('Ba', 0.589, percent_type='wo')
+barite.add_element('S', 0.137, percent_type='wo')
+barite.add_element('O', 0.274, percent_type='wo')
+
+floor_mat = openmc.Material.mix_materials([concrete, barite], [0.85, 0.15], 'wo')
+
+my_source = tokamak_source(
+    elongation= 2,#up to
+    ion_density_centre=1.5e20, #up to
+    ion_density_pedestal=0.3e20,#guessed
+    ion_density_peaking_factor=1.15, #guessed from git
+    ion_density_separatrix=3e19, #guessed from git
+    ion_temperature_centre=15e3, #up to
+    ion_temperature_pedestal=5e3, #guessed from git
+    ion_temperature_separatrix=0.1e3,#guessed from git
+    ion_temperature_peaking_factor=3, #guessed from git
+    ion_temperature_beta=5, #guessed from git
+    major_radius=170, #found
+    minor_radius=60, #found
+    pedestal_radius=0.8 * 60,#NTF
+    mode="H",
+    shafranov_factor=0.4457,#guessed from git
+    triangularity= 0.8,#found
+    fuel={"D": 1.0},#found
+)
+
+mats = openmc.Materials([pbwall, steel, floor_mat, air])
+mats.cross_sections = "/storage/work/ajg7072/Capstone/endf/cross_sections.xml"
+mats.export_to_xml()
+
+########Geometry############
+room_l = 1830
+room_h = 856
+room_w = 1830
+wall_t = 45
+roof_t = 36
+floor_t = 30
+
+# Outer boundaries
+x_min_outer = openmc.XPlane(-room_l/2 - wall_t, boundary_type='vacuum')
+x_max_outer = openmc.XPlane(room_l/2 + wall_t, boundary_type='vacuum')
+y_min_outer = openmc.YPlane(-room_w/2 - wall_t, boundary_type='vacuum')
+y_max_outer = openmc.YPlane(room_w/2 + wall_t, boundary_type='vacuum')
+z_min_outer = openmc.ZPlane(-floor_t, boundary_type='vacuum')
+z_max_outer = openmc.ZPlane(room_h + roof_t, boundary_type='vacuum')
+
+# Inner bounds
+x_min_inner = openmc.XPlane(-room_l/2)
+x_max_inner = openmc.XPlane(room_l/2)
+y_min_inner = openmc.YPlane(-room_w/2)
+y_max_inner = openmc.YPlane(room_w/2)
+z_min_inner = openmc.ZPlane(0)
+z_max_inner = openmc.ZPlane(room_h)
+
+# Create cells
+interior = openmc.Cell(name='interior')
+interior.region = +x_min_inner & -x_max_inner & +y_min_inner & -y_max_inner & +z_min_inner & -z_max_inner
+interior.fill = air
+
+west_wall = openmc.Cell(name='west_wall')
+west_wall.region = +x_min_outer & -x_min_inner & +y_min_inner & -y_max_inner & +z_min_inner & -z_max_inner
+west_wall.fill = pbwall
+
+east_wall = openmc.Cell(name='east_wall')
+east_wall.region = +x_max_inner & -x_max_outer & +y_min_inner & -y_max_inner & +z_min_inner & -z_max_inner
+east_wall.fill = pbwall
+
+north_wall = openmc.Cell(name='north_wall')
+north_wall.region = +x_min_inner & -x_max_inner & +y_max_inner & -y_max_outer & +z_min_inner & -z_max_inner
+north_wall.fill = pbwall
+
+south_wall = openmc.Cell(name='south_wall')
+south_wall.region = +x_min_inner & -x_max_inner & -y_min_inner & +y_min_outer & +z_min_inner & -z_max_inner
+south_wall.fill = pbwall
+
+floor = openmc.Cell(name='floor')
+floor.region = +x_min_outer & -x_max_outer & +y_min_outer & -y_max_outer & +z_min_outer & -z_min_inner
+floor.fill = floor_mat
+
+roof = openmc.Cell(name='roof')
+roof.region = +x_min_outer & -x_max_outer & +y_min_outer & -y_max_outer & +z_max_inner & -z_max_outer
+roof.fill = steel
+
+graveyard = openmc.Cell(name='graveyard')
+graveyard.region = (
+    +x_min_outer & -x_max_outer &
+    +y_min_outer & -y_max_outer &
+    +z_min_outer & -z_max_outer
+) & ~(
+    interior.region |
+    west_wall.region | east_wall.region |
+    north_wall.region | south_wall.region |
+    floor.region |
+    roof.region
+)
+graveyard.fill = air
+
+universe = openmc.Universe(cells=[
+    interior,
+    west_wall, east_wall, north_wall, south_wall,
+    floor, roof, graveyard
+])
+
+geometry = openmc.Geometry(universe)
+geometry.export_to_xml()
+
+######## Settings ###########
+settings = openmc.Settings()
+settings.batches = 100
+settings.particles = 1000
+settings.run_mode = 'fixed source'
+settings.sources = [my_source]
+settings.export_to_xml()
+
+######## Mesh and Tallies ###########
+# Spatial flux tally
+mesh = openmc.RegularMesh()
+mesh.dimension = (100, 100, 50)
+mesh.lower_left = (-room_l/2, -room_w/2, 0)
+mesh.upper_right = (room_l/2, room_w/2, room_h)
+
+mesh_filter = openmc.MeshFilter(mesh)
+flux_tally = openmc.Tally(name="flux_3d")
+flux_tally.filters = [mesh_filter]
+flux_tally.scores = ["flux"]
+
+# Energy spectrum tally
+energy_bins = np.logspace(3, 7, 100)  # 0.001 MeV to 10 MeV
+energy_filter = openmc.EnergyFilter(energy_bins)
+
+spectrum_tally = openmc.Tally(name="energy_spectrum")
+spectrum_tally.filters = [energy_filter]
+spectrum_tally.scores = ["flux"]
+
+
+# Export BOTH tallies
+tallies = openmc.Tallies([flux_tally, spectrum_tally])
+tallies.export_to_xml()
+
+######## Run Simulation ###########
+openmc.run()
+
+######## Plot Energy Spectra ######
+######## Plot Energy Spectra ######
+sp = openmc.StatePoint("statepoint.100.h5")
+spectrum_tally = sp.get_tally(name="energy_spectrum")
+
+# Get energy bins (this returns the bin edges array you originally defined)
+energy_bins_eV = energy_filter.values  # Use the filter you defined earlier
+energy_bins_MeV = energy_bins_eV / 1e6  # Convert eV to MeV
+
+# Reduce tally to 1D spectrum
+flux_1d = spectrum_tally.mean[:, 0, 0]
+
+# Flux per unit energy
+dE = np.diff(energy_bins_eV)
+spectrum = flux_1d / dE
+
+# Plot ONE line
+plt.figure(figsize=(8, 5))
+plt.step(energy_bins[:-1], spectrum*1e6, where="post")
+
+plt.xlabel("Energy (MeV)")
+plt.ylabel("Flux [n/cm²/MeV/source]")
+plt.xscale("log")
+plt.yscale("log")
+plt.title("Neutron Energy Spectrum (D–D Ring Source)")
+plt.grid(True, which="both", alpha=0.3)
+plt.savefig("Energy_Spectra.png", dpi=300)
+plt.show()
+
+#####Using plotly for 3d maps###########
+#####Using plotly for 3d maps###########
+# Load the flux data first
+sp = openmc.StatePoint("statepoint.100.h5")  # You already have this above, can reuse
+flux_tally_data = sp.get_tally(name="flux_3d")
+
+# Reshape to 3D
+nx, ny, nz = 100, 100, 50
+flux_3d = flux_tally_data.mean.reshape((nx, ny, nz))
+
+# Create coordinate arrays (convert to meters)
+x = np.linspace(-room_l/2, room_l/2, nx) / 100  # cm to m
+y = np.linspace(-room_w/2, room_w/2, ny) / 100
+z = np.linspace(0, room_h, nz) / 100
+
+X, Y, Z = np.meshgrid(x, y, z, indexing='ij')
+
+# Now your Plotly code will work
+flux_3d_normalized = (flux_3d - flux_3d.min()) / (flux_3d.max() - flux_3d.min())
+fig = go.Figure(data=go.Volume(
+    x=X.flatten(),
+    y=Y.flatten(),
+    z=Z.flatten(),
+    value=flux_3d.flatten(),
+    isomin=np.percentile(flux_3d[flux_3d > 0], 40),
+    isomax=flux_3d.max() * 0.8,
+    opacity=0.1, 
+    surface_count=15, 
+    colorscale='Hot',
+    caps=dict(x_show=False, y_show=False, z_show=False),
+))
+
+fig.update_layout(
+    title='Neutron Flux Cloud - D-D Fusion Ring',
+    scene=dict(
+        xaxis_title='X (m)',
+        yaxis_title='Y (m)',
+        zaxis_title='Z (m)',
+        aspectmode='data'
+    ),
+    width=1000,
+    height=800
+)
+fig.write_html("flux_3d_volume.html")
+#fig.write_image("flux_3d_volume.png", width=1200, height=900)
+
+
+
+
+
+
+
