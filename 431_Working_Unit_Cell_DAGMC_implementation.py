@@ -111,7 +111,7 @@ settings.source = src
 settings.batches = 100
 settings.inactive = 10
 settings.particles = 1000
-settings.export_to_xml
+settings.export_to_xml()
 
 # <<< define tallies:
 # suppressed tallies since fuel is not present, working on method for how to extract dagmc geometry for tallying - JMD 
