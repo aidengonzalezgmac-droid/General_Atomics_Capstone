@@ -1,0 +1,123 @@
+# import and space, change only settings, geometry, and plot files, do NOT change materials.
+
+import openmc 
+import datetime
+import math
+
+# space terminal by printing current system time to verify operability.
+now = datetime.datetime.now()
+print('\n'*25) # space the terminal
+print('Simulation run at:', now)
+
+TestCompModel = openmc.DAGMCUniverse(filename = '/bin/431_GA_TESTCOM_C_INTv3.h5m', auto_geom_ids = True)
+room = openmc.Cell(name = 'Test_Comp')
+room.fill = TestCompModel
+
+geometry = openmc.Geometry([room])
+geometry.export_to_xml()
+
+# creates a simple isotropic neutron source in the center with 14MeV neutrons
+my_source = openmc.Source()
+# the distribution of radius is just a single value at the plasma major radius
+radius = openmc.stats.Discrete([293.], [1])
+# the distribution of source z values is just a single value
+z_values = openmc.stats.Discrete([0], [1])
+# the distribution of source azimuthal angles values is a uniform distribution between 0 and 0.5 Pi
+# these angles must be the same as the reflective angles
+angle = openmc.stats.Uniform(a=0., b=math.radians(90))
+# this makes the ring source using the three distributions and a radius
+my_source.space = openmc.stats.CylindricalIndependent(r=radius, phi=angle, z=z_values, origin=(0.0, 0.0, 0.0))
+# sets the direction to isotropic
+my_source.angle = openmc.stats.Isotropic()
+# sets the energy distribution to a Muir distribution neutrons
+my_source.energy = openmc.stats.Muir(e0=14080000.0, m_rat=5.0, kt=20000.0)
+
+# apply settings:
+settings = openmc.Settings()
+settings.source = my_source
+settings.batches = 100
+settings.inactive = 10
+settings.particles = 10
+settings.run_mode = 'fixed source'
+settings.dagmc = True
+settings.export_to_xml()
+
+plot = openmc.Plot(name = '431_GA_TEST_COMP') # creates the plot 
+plot.basis = 'xy' # (viewed from above in Z direc)
+plot.origin = (0,0,0) # Center point 
+plot.width = (400, 400) # X by Y cm view area  # A 31x by 31x cross sectional view of the model,
+# centered at the origin
+plot.pixels = (1080, 1080) # resolution
+plot.filename = '/bin/431_GA_TEST_COMP' # writes the actual image file into the bin. 
+plots = openmc.Plots([plot])
+plots.export_to_xml()
+
+openmc.run()
+# openmc.plot_geometry()
+# verify simulation ended: 
+
+print('\n') 
+print('End of simulation.')
+print('\n')
+
+
+# test component, the exact same problem arises: 
+"""
+ Simulating batch 1
+[4665db1faf42:6605 :0:6828] Caught signal 11 (Segmentation fault: address not mapped to object at address 0x3c)
+Traceback (most recent call last):
+  File "/bin/431_GA_TESTCOMP.py", line 54, in <module>
+    openmc.run()
+  File "/openmc_venv/lib/python3.12/site-packages/openmc/executor.py", line 314, in run
+    _run(args, output, cwd)
+  File "/openmc_venv/lib/python3.12/site-packages/openmc/executor.py", line 125, in _run
+    raise RuntimeError(error_msg)
+RuntimeError: OpenMC aborted unexpectedly.
+"""
+
+# Normal operation: 
+# the cubit, in-built geometry found in the pincell example fires up and works appropriately
+    # This method used built-in-geometry.
+    # H: if the imported models are the problem, then a custom cubit model should work fine.
+
+# INTERESTING: 
+"""
+Simulating batch 1
+[4665db1faf42:16396:0:16657] Caught signal 11 (Segmentation fault: address not mapped to object at address 0x3c)
+==== backtrace (tid:  16657) ====
+ 0  /lib/x86_64-linux-gnu/libucs.so.0(ucs_handle_error+0x2ec) [0x7a6f59d0064c]
+ 1  /lib/x86_64-linux-gnu/libucs.so.0(+0x2d34d) [0x7a6f59d0234d]
+ 2  /lib/x86_64-linux-gnu/libucs.so.0(+0x2d51d) [0x7a6f59d0251d]
+ 3  /lib/x86_64-linux-gnu/libc.so.6(+0x45330) [0x7a6f5c0bc330]
+ 4  /usr/local/lib/libopenmc.so(_ZN6openmc8Particle13cross_surfaceERKNS_7SurfaceE+0xa8f) [0x7a6f5ee08a9f]
+ 5  /usr/local/lib/libopenmc.so(_ZN6openmc8Particle19event_cross_surfaceEv+0x10a) [0x7a6f5ee0cbba]
+ 6  /usr/local/lib/libopenmc.so(_ZN6openmc39transport_history_based_single_particleERNS_8ParticleE+0x9d) [0x7a6f5ee7095d]
+ 7  /usr/local/lib/libopenmc.so(+0x1efa10) [0x7a6f5ee70a10]
+ 8  /lib/x86_64-linux-gnu/libgomp.so.1(+0x2279f) [0x7a6f5a21e79f]
+ 9  /lib/x86_64-linux-gnu/libc.so.6(+0x9caa4) [0x7a6f5c113aa4]
+10  /lib/x86_64-linux-gnu/libc.so.6(__clone+0x44) [0x7a6f5c1a0a64]
+"""
+
+# The same error occured 
+# the custom cubit model does not work
+    # new H: If the geometry itself is not the problem, then the workflow for modeling is the problem
+    # Addendum to the H: we didn't do anything like the air component in the pincell example (except they did, by subtracting and merging that geometry)
+    # However, they used a lot of tris in their model, is it possible I used too little to save on export cost?, so why not try a re-mesh?
+
+# What appears to be the same error occured, but without the segmentation fault 
+# Oh never-fucking-mind, looks like it is the same error: 
+
+"""
+ Simulating batch 1
+[1772478149.623598] [4665db1faf42:19408:1]           debug.c:1300 UCX  WARN  ucs_debug_disable_signal: signal 8 was not set in ucs
+[4665db1faf42:19408:1:19586] Caught signal 11 (Segmentation fault: address not mapped to object at address 0x3c)
+Traceback (most recent call last):
+  File "/bin/431_GA_TESTCOMP.py", line 55, in <module>
+    openmc.run()
+  File "/openmc_venv/lib/python3.12/site-packages/openmc/executor.py", line 314, in run
+    _run(args, output, cwd)
+  File "/openmc_venv/lib/python3.12/site-packages/openmc/executor.py", line 125, in _run
+    raise RuntimeError(error_msg)
+RuntimeError: OpenMC aborted unexpectedly.
+(openmc_venv) root@4665db1faf42:/bin# 
+"""
