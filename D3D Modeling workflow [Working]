@@ -1,0 +1,61 @@
+D3D Modeling workflow: 
+
+Steps in order: 
+- Acquire some form of model or assembly capable of being imported to CAD program
+  - Solidworks is useful for this, specifically assemblies, since you are able to create geometry mates and references quickly using 
+    Solidworks methods.
+- Use the export functionality of the CAD program to export in a ACIS (.SAT) file format for Coreform Cubit:
+- Import the ACIS file into Coreform cubit (separating multi-volume bodies) 
+- On import, perform following commands: 
+  - Cubit>imprint body all
+  - Cubit>merge body all 
+  - ^These commands will make contacting surfaces imprinted and merge them together. 
+- For OpenMC work: verify that your model is at the origin of the cubit file 
+- if the model is NOT at the center of the cubit file/working space, select all components and use the offset of 
+  one individual component and offset all of the models so that they can return to the origin of your model. 
+  - this is important for OpenMC so that your model is present at the origin of your OpenMC simulation and 
+    so that other components (such as sources) aren't offset inadvertently. 
+- Depending on your CAD program and export method: 
+  - You must ensure your .h5m model for export uses a standard centimeter scale for distance values 
+  - If importing via solidworks import, you can just change the editing scale which should carry over to the ACIS export. 
+  - If you accidentally export in a different form, call in a scale cube of some known or expected scale. 
+    - For example, if you export in mm, cubit will use the scale of mm and the model will be extremely large on openmc import
+    - Cubit makes NO distiniction between the import units, OpenMC defaults and assumes the scale is in centimeters, so if you 
+      exported a file in mm, openmc is going to call each mm a cm in your model, and you'll be off by a factor of 10. 
+    - To remedy this, select all geometry and use the scale geometry function to re-scale all geometry in place. 
+      - Be aware that a "scale in place" method may cause disjointing in your model. 
+- With import completed:
+- create new materials for the components of interest in the model
+  - These files need to be exact to the name of those present in a geometry file.
+    - NOTE as far as I can tell, openmc is not case sensitive to the name, but do your best to be consistent.
+  - Because of how openmc mixes materials, the exported material contents will be named their mix contents, NOT the name assigned to them
+    - Consider overriding the named XML file as OpenMC just cares what and where the file is placed. 
+- Collect/select multiple volumes in your model which share material properties, and assign a "Block" to them. 
+  - You will need to create new blocks for this, and ideally you keep the volume selections in some way consistent 
+- With volumes assigned to blocks, assign the previously created MATERIALS to BLOCKS (which are assigned to volumes) 
+  - The name of the blocks does not matter, the material assignment in Cubit allows you to import the models appropriately. 
+- With your materials now corectly assigned to volumes (via blocks) the next task is to create an additional bounding geometry: 
+
+For D3D: 
+- Create an extra volume around your environment which you want to assign as a graveyard. 
+  - This needs to be a volume of some thickness, so the easiest solution is making a cube and hollowing it out via subtraction.
+- With the extra volume around the environment, perform the same block assignment, but with an extra step: 
+  - Instead of assigning an existing material, create a NEW material called "Graveyard" (without quotes). 
+- Assign the graveyard material to the block on this surrounding geometry. 
+- This will be a void material with vacuum boundary conditions surrounding your geometry. 
+
+- The last step of this preparation is to mesh the model appropriately.
+  - It is recommended to use the Trimesh surface, using "all" for all surfaces in the model for modeling. 
+  - NOTE: The learning form of Cubit has a 50,000 entity export limit, every single trimesh used counts as an "entity". 
+    -If you need to, it should be possible to create multiple improted cells in openmc if a particular 
+
+
+- FINISH THIS 
+
+
+
+
+
+
+
+- 
