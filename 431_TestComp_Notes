@@ -1,3 +1,5 @@
+https://github.com/fusion-energy/openmc_regular_mesh_plotter
+
 # import and space, change only settings, geometry, and plot files, do NOT change materials.
 
 import openmc 
