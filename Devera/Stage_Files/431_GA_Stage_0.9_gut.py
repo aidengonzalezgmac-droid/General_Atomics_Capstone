@@ -1,3 +1,7 @@
+
+# TODO: SPACE MESHES TO MATCH WITH GEOMETRY RATHER THAN ARBITRARY POSITIONS. (Per deci-meter or so) 
+# TODO: FIND CELL ACCESS METHOD.
+
 # import modules: 
 
 import openmc 
