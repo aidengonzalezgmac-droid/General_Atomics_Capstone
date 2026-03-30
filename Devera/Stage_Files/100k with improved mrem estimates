@@ -1,0 +1,62 @@
+settings = openmc.Settings()
+settings.source = my_source
+settings.batches = 100 # oriignally 100 but for testing we shouldnd't need this many.
+settings.inactive = 10
+settings.particles = 100000
+settings.run_mode = 'fixed source'
+settings.export_to_xml()
+
+=======================>     TIMING STATISTICS     <=======================
+
+ Total time for initialization     = 2.7390e+00 seconds
+   Reading cross sections          = 2.6808e+00 seconds
+ Total time in simulation          = 3.4378e+02 seconds
+   Time in transport only          = 3.4364e+02 seconds
+   Time in active batches          = 3.4378e+02 seconds
+   Time accumulating tallies       = 1.2163e-01 seconds
+   Time writing statepoints        = 1.2485e-02 seconds
+ Total time for finalization       = 3.6956e-01 seconds
+ Total time elapsed                = 3.4691e+02 seconds
+ Calculation Rate (active)         = 29088.4 particles/second
+
+ ============================>     RESULTS     <============================
+
+ Leakage Fraction            = 0.04000 +/- 0.00007
+
+Benchmarking against full Aug 14 session: S_n = 1.31e+17 n
+
+===============================================================================================
+C/E BENCHMARKING — Aug 14 2025 | S_n=1.31e+17 n | ICRP-116 ISO Fast Neutron Dose (mrem)
+===============================================================================================
+  Detector                     xyz (cm)                   C (mrem)     E (mrem)     C/E     Flag
+-----------------------------------------------------------------------------------------------
+  EXP_6_Transrex               (-900, -900, 0)            8.1          30           0.27    WARN  Under by >2x
+  EXP_7_Transrex               (-950, -950, 0)            ---          MDL/CAP      ---     SKIP -- No neutron signal — below MDL
+  EXP_8_MainEntrance           (-800, 200, 0)             23.1         30           0.77    PASS  Within +/-30%
+  EXP_9_NorthDoor_no_view      (-500, 700, 0)             0.00e+00     860          ---     WARNING: C~0 -- low stats or position outside active mesh
+  EXP_10_NorthDoor_with_view   (-600, 750, 0)             6209.8       8910         0.70    PASS  Within +/-30%
+  EXP_11_DeyongOut             (-300, -200, 0)            7229.5       5060         1.43    OK    Within factor of 2
+  EXP_12_DeyongIn              (-300, -200, 0)            ---          MDL/CAP      ---     SKIP -- Inside Deyong box — FN exceeded detector cap
+  EXP_13_150V+1                (100, 100, 0)              19728.3      6620         2.98    FAIL  C >> E  (>2x over)
+  EXP_14_150V-1                (100, 50, 0)               21277.4      19540        1.09    PASS  Within +/-30%
+  EXP_15                       (200, -100, 0)             20924.6      18210        1.15    PASS  Within +/-30%
+-----------------------------------------------------------------------------------------------
+
+  C/E summary:  mean=1.20  min=0.27  max=2.98  |  Within +/-30%: 3/7
+
+  Notes:
+    - Detector xyz are FLOOR PLAN ESTIMATES -- replace with surveyed CAD coords
+    - EXP 7: below minimum detectable level -- excluded from C/E
+    - EXP 12: fast neutron component exceeded Landauer cap -- excluded (lower bound only)
+    - EXP 10 has HIGHER dose than EXP 9 despite 'no vessel view' -- verify badge
+      placement in field records (10 and 9 may be swapped)
+    - Photon dose NOT compared -- activation gammas not in OpenMC model
+    - C/E targets: +/-30% near-field, factor of 2 acceptable in deep shielded regions
+
+===============================================================================================
+
+
+End of simulation.
+
+
+(openmc_venv) root@4665db1faf42:/bin# 
