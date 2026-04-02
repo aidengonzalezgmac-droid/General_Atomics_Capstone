@@ -1,0 +1,14 @@
+rs = 400
+detectors = {
+    # Name                   xyz (cm) (tbd)            FN_mrem(from report)   Notes
+    '==01== x,0,0'  :          ((rs,0,0),     1,      'Transrex area, far wall'),
+    '==02== 0,y,0'  :          ((0,rs,0),     1,    'No neutron signal — below MDL'),
+    '==03== 0,0,z'  :          ((0,0,rs),     1,      'Main entrance, well shielded'),
+    '==04== 1,1,1'  :          ((rs,rs,rs),   1,     'Shielded'),
+    '==05== x,y,0'  :          ((rs,rs,0),    1,    'LOS'),
+    '==06== -y,-x,0':          ((-rs, -rs,0), 1,    'Outside Deyong shield box'),
+    '==07== 0,y,z'  :          ((0,rs,rs),    1,    'Inside Deyong box — 2374 (2380) extrapolated)'),
+    '==08== 0,-y,-z':          ((0,-rs,-rs),  1,    '150V+1 near vessel'),
+    '==09== x,0,z'  :          ((rs,0,rs),    1,   '150V-1 near vessel — highest FN'),
+    '==10== -x,0,-z':          ((-rs,0,-rs),  1,   'Second highest FN location'),
+}
