@@ -1,0 +1,55 @@
+# Note on file: 
+  # produced 20260421, iso 8061 format 
+  # syntax for python file and format (hence pound comments) 
+
+# Notes for implementation: 
+	# Make sure the "esbin" variable is extracted to the main data array, use the same trick for extracting the calculated cell dose data if needed. 
+	# While it might be good to try and plot individually first, plot everything all at once is probably good enough
+	# See if we even need to have cmap listed in variable call 
+	# Figure out a way to fix colorbar spectrum to a particular scale 
+
+# Call data of interest: 
+fxyt # flucney x-y-target
+fyzt # fluency y-z-target 
+fxzt # fluency x-z-target # get slice data from target plot of interest 
+esd # energy spectrum data e-s-d
+esbin # energy spectrum bin e-s-bin (linspace defined earlier code), should be an array with matching length to output. 
+
+# setup plots: 
+fig, axs = plt.subplots(2,2) # creates 2x2 subplots for plotting multiple traces 
+
+# create xy at top left corner: 
+pfxy = axs[0,0].imshow(fxyt, cmap = 'plasma') 
+axs[0,0].set_title('Axis 0-0 fxyt')
+axs[0,0].set_xlabel("phY")
+axs[0,0].set_ylabel("phX") 
+cbarxyt = plt.colorbar(pfxy, ax = axs[0,0], cmap = 'plasma') 
+cbar.set_label('Neutron Dose along particular <X-Y> trace [mrem]') 
+
+pfxy.set_clim(vmin = 0, vmax = 1e7) # does this work???? 
+
+# create yz at top right corner: 
+pfyz = axs[0,1].imshow(fyzt, cmap = 'plasma') 
+axs[0,1].set_title('Axis 0-1 fyzt') 
+axs[0,1].set_xlabel("phZ")
+axs[0,1].set_ylabel("phY") 
+cbaryzt = plt.colorbar(pfyz, ax = axs[0,1], cmap = 'plasma') 
+cbar.set_label('Neutron dose along particular <Y-Z> trace [mrem]') 
+
+# create xz at bottom left corner: 
+pfxz = axs[1,0].imshow(fxzt, cmap = 'plasma') 
+axs[1,0].set_title('Axis 1-0 fyzt') 
+axs[1,0].set_xlabel("phZ")
+axs[1,0].set_ylabel("phX")
+cbarxzt = plt.colorbar(pfxz, ax = axs[1,0], cmap = 'plasma')
+cbar.set_label('Neutron dose along a particular <X-Z> trace [mrem]') 
+
+# creates the step plot at bottom right corner: 
+axs[1,1].plot(esbin, es) 
+axs[1,1].set_title('Neutron energy at particular mesh point of interest') 
+axs[1,1].set_xlabel("energy bin [eV]") 
+axs[1,1].set_ylabel("relative fluency [particles/cm]") 
+
+# save figure data: 
+plt.savefig(fname = '/bin/431_GA_Stage_3.0.png'
+plt.show # is show strictly necessary? 
