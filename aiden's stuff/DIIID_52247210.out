@@ -1,0 +1,94 @@
+Job started on p-bc-5428 at Mon Apr 27 10:31:48 EDT 2026
+n-001_H_002.endf: Warning, LTT (3) for elastic scattering, using Legendre only
+n-006_C_012.endf: Warning, LTT (3) for elastic scattering, using Legendre only
+[<openmc.source.IndependentSource object at 0x15102161dc70>]
+PASS 2: Production run with MAGIC weight windows loaded
+                                %%%%%%%%%%%%%%%
+                           %%%%%%%%%%%%%%%%%%%%%%%%
+                        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                      %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                                    %%%%%%%%%%%%%%%%%%%%%%%%
+                                     %%%%%%%%%%%%%%%%%%%%%%%%
+                 ###############      %%%%%%%%%%%%%%%%%%%%%%%%
+                ##################     %%%%%%%%%%%%%%%%%%%%%%%
+                ###################     %%%%%%%%%%%%%%%%%%%%%%%
+                ####################     %%%%%%%%%%%%%%%%%%%%%%
+                #####################     %%%%%%%%%%%%%%%%%%%%%
+                ######################     %%%%%%%%%%%%%%%%%%%%
+                #######################     %%%%%%%%%%%%%%%%%%
+                 #######################     %%%%%%%%%%%%%%%%%
+                 ######################     %%%%%%%%%%%%%%%%%
+                  ####################     %%%%%%%%%%%%%%%%%
+                    #################     %%%%%%%%%%%%%%%%%
+                     ###############     %%%%%%%%%%%%%%%%
+                       ############     %%%%%%%%%%%%%%%
+                          ########     %%%%%%%%%%%%%%
+                                      %%%%%%%%%%%
+
+                 | The OpenMC Monte Carlo Code
+       Copyright | 2011-2025 MIT, UChicago Argonne LLC, and contributors
+         License | https://docs.openmc.org/en/latest/license.html
+         Version | 0.15.3
+     Commit Hash | 27e38e894697bb32a1dac7848d2618818b6b8daf
+       Date/Time | 2026-04-27 10:32:07
+  OpenMP Threads | 24
+
+ Reading settings XML file...
+ Reading materials XML file...
+ Reading geometry XML file...
+Loading file /storage/work/ajg7072/Capstone/Ring_source/cad_modeling/431_GA_Stage_2.7.h5m
+Initializing the GeomQueryTool...
+Using faceting tolerance: 0
+Building acceleration data structures...
+ Reading tallies XML file...
+ Preparing distributed cell instances...
+ Reading plot XML file...
+
+ =======================>     PLOTTING SUMMARY     <========================
+
+Plot ID: 1
+Plot file: geometry_plot.png
+Universe depth: -1
+Plot Type: Slice
+Origin: 0 0 0
+Width: 3000 1184
+Coloring: Materials
+Basis: XZ
+Pixels: 3000 1184
+
+ Processing plot 1: geometry_plot.png...
+Benchmarking against full Aug 14 session: S_n = 1.31e+17 n
+
+=========================================================================================================
+C/E BENCHMARKING — Aug 14 2025 | S_n=1.31e+17 n | ICRP-116 ISO | PASS 2
+=========================================================================================================
+  Detector                     C (mrem)     E (mrem)     C/E     Flux RelErr   Dose RelErr   Flag
+---------------------------------------------------------------------------------------------------------
+  EXP_6_Transrex               71.5         30           2.38    1.6%          8.3%          FAIL  C >> E  (>2x over)
+  EXP_7_Transrex               ---          MDL/CAP      ---     ---           ---           SKIP -- Below MDL
+  EXP_8_MainEntrance           29014.9      30           967.16  2.0%          10.3%         FAIL  C >> E  (>2x over)
+  EXP_9_NorthDoor_Non_LOS      27835.7      860          32.37   1.6%          8.4%          FAIL  C >> E  (>2x over)
+  EXP_10_NorthDoor_LOS         19905.1      8910         2.23    2.8%          10.8%         FAIL  C >> E  (>2x over)
+  EXP_11_DeyongOut             133778.0     5060         26.44   1.2%          4.2%          FAIL  C >> E  (>2x over)
+  EXP_12_DeyongIn              ---          MDL/CAP      ---     ---           ---           SKIP -- Inside Deyong box — FN cap exceeded
+  EXP_13_150V+1                146574.2     6620         22.14   1.6%          4.4%          FAIL  C >> E  (>2x over)
+  EXP_14_150V-1                139122.6     19540        7.12    1.1%          4.3%          FAIL  C >> E  (>2x over)
+  EXP_15                       218694.9     18210        12.01   1.3%          3.6%          FAIL  C >> E  (>2x over)
+---------------------------------------------------------------------------------------------------------
+
+  C/E summary:  mean=133.98  min=2.23  max=967.16  |  Within +/-30%: 0/8
+
+  Notes:
+    - Detector xyz are FLOOR PLAN ESTIMATES -- replace with surveyed CAD coords
+    - Flux/Dose RelErr > 20% means that detector's C value is statistically unreliable
+    - EXP 7: below MDL -- excluded; EXP 12: FN cap exceeded -- excluded
+    - Photon dose not compared -- activation gammas not modelled
+    - C/E targets: +/-30% near-field, factor of 2 in shielded regions
+    - Run PASS=1 first to generate weight_windows.h5, then PASS=2 for production
+
+=========================================================================================================
+ALL DONE
+Python script completed successfully
+Job ended on p-bc-5428 at Mon Apr 27 10:32:21 EDT 2026

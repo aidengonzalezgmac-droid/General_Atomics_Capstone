@@ -1,0 +1,2 @@
+/storage/work/ajg7072/.conda/envs/openmc_dagmc_env/lib/python3.12/site-packages/openmc/tallies.py:1859: RuntimeWarning: invalid value encountered in divide
+  data = self.std_dev[indices] / self.mean[indices]
